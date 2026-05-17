@@ -24,6 +24,7 @@ RUN set -eux; \
     {% if version|int >= 11 -%}
     java -Xshare:dump; \
     jlink \
+        --module-path "$JAVA_HOME/jmods" \
         --add-modules ALL-MODULE-PATH \
         --strip-debug \
         --no-man-pages \
