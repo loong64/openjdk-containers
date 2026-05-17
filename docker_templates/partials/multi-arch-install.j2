@@ -1,17 +1,10 @@
 RUN set -eux; \
 {%- include 'partials/arch-variable.j2' %} \
-{%- set ver = version|int %}
     case "${ARCH}" in \
        {% for arch, details in arch_data.items() -%}
         {{ arch }}) \
          ESUM='{{ details.checksum }}'; \
          BINARY_URL='{{ details.download_url }}'; \
-         {% if arch == "armhf" and os == "ubuntu" and ver == 8 -%}
-         # Fixes libatomic.so.1: cannot open shared object file
-         apt-get update; \
-         DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends libatomic1; \
-         rm -rf /var/lib/apt/lists/*; \
-         {% endif -%}
          ;; \
        {% endfor -%}
         *) \
@@ -19,23 +12,8 @@ RUN set -eux; \
          exit 1; \
          ;; \
     esac; \
-    {%- if ver > 24 %}
-    {%- if os == "alpine-linux" %}
-    apk add --no-cache --virtual .fetch-deps gnupg; \
-    {%- elif os == "ubuntu" %}
-    savedAptMark="$(apt-mark showmanual)"; \
-    apt-get update; \
-    apt-get install -y --no-install-recommends wget gnupg; \
-    {%- endif %}
-    {%- endif %}
-    wget {% if os != "alpine-linux" %}--progress=dot:giga {% endif %}-O /tmp/openjdk.tar.gz ${BINARY_URL}; \
-    wget {% if os != "alpine-linux" %}--progress=dot:giga {% endif %}-O /tmp/openjdk.tar.gz.sig ${BINARY_URL}.sig; \
-    export GNUPGHOME="$(mktemp -d)"; \
-    # gpg: key 843C48A565F8F04B: "Adoptium GPG Key (DEB/RPM Signing Key) <temurin-dev@eclipse.org>" imported
-    gpg --batch --keyserver keyserver.ubuntu.com --recv-keys 3B04D753C9050D9A5D343F39843C48A565F8F04B; \
-    gpg --batch --verify /tmp/openjdk.tar.gz.sig /tmp/openjdk.tar.gz; \
-    rm -rf "${GNUPGHOME}" /tmp/openjdk.tar.gz.sig; \
-    echo "${ESUM} */tmp/openjdk.tar.gz" | sha256sum -c -; \
+    wget --progress=dot:giga -O /tmp/openjdk.tar.gz ${BINARY_URL}; \
+    echo "${ESUM}  /tmp/openjdk.tar.gz" | md5sum -c -; \
     mkdir -p "$JAVA_HOME"; \
     tar --extract \
         --file /tmp/openjdk.tar.gz \
@@ -43,20 +21,8 @@ RUN set -eux; \
         --strip-components 1 \
         --no-same-owner \
     ; \
-    {%- if ver == 8 %}
+    {%- if version|int == 8 %}
     rm -f /tmp/openjdk.tar.gz{% if image_type == "jdk" %} ${JAVA_HOME}/src.zip{% endif %};
     {%- else %}
     rm -f /tmp/openjdk.tar.gz{% if image_type == "jdk" %} ${JAVA_HOME}/lib/src.zip{% endif %};
-    {%- if ver > 24 -%}
-    {%- if os == "alpine-linux" -%}
-    {{ " " }}\
-    apk del --no-network .fetch-deps;
-    {%- elif os == "ubuntu" -%}
-    {{ " " }}\
-    apt-mark auto '.*' > /dev/null; \
-    apt-mark manual $savedAptMark > /dev/null; \
-    apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
-    rm -rf /var/lib/apt/lists/*;
-    {%- endif %}
-    {%- endif %}
-    {%- endif %}
+    {%- endif -%}

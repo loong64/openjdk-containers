@@ -12,304 +12,188 @@
 #
 
 import unittest
-from unittest.mock import Mock, mock_open, patch
 
 from jinja2 import Environment, FileSystemLoader
-
-from generate_dockerfiles import resolve_architectures
 
 
 class TestJinjaRendering(unittest.TestCase):
     def setUp(self):
-        # Setup the Jinja2 environment
         self.env = Environment(loader=FileSystemLoader("docker_templates"))
 
-    def test_armhf_ubuntu8_rendering(self):
-        template_name = "ubuntu.Dockerfile.j2"
-        template = self.env.get_template(template_name)
+    def _arch_data(self, arch="loong64"):
+        return {arch: {"download_url": "https://fake-url.com/jdk.tar.gz", "checksum": "abc123"}}
 
-        arch_data = {}
+    # --- debian template ---
 
-        arch_data["armhf"] = {
-            "download_url": "http://fake-url.com",
-            "checksum": "fake-checksum",
-        }
+    def test_debian_jdk11_contains_download_url(self):
+        template = self.env.get_template("debian.Dockerfile.j2")
+        rendered = template.render(
+            base_image="ghcr.io/loong64/debian:forky",
+            image_type="jdk",
+            java_version="jdk-11.0.30+7",
+            version=11,
+            arch_data=self._arch_data(),
+            os="debian",
+        )
+        self.assertIn("https://fake-url.com/jdk.tar.gz", rendered)
+        self.assertIn("abc123", rendered)
+        self.assertIn("ghcr.io/loong64/debian:forky", rendered)
 
-        # The context/variables to render the template
-        context = {
-            "architecture": "armhf",
-            "os": "ubuntu",
-            "version": "8",
-            "arch_data": arch_data,
-        }
-        rendered_template = template.render(**context)
+    def test_debian_jdk11_ldconfig_and_xshare(self):
+        template = self.env.get_template("debian.Dockerfile.j2")
+        rendered = template.render(
+            base_image="ghcr.io/loong64/debian:forky",
+            image_type="jdk",
+            java_version="jdk-11.0.30+7",
+            version=11,
+            arch_data=self._arch_data(),
+            os="debian",
+        )
+        self.assertIn("ldconfig", rendered)
+        self.assertIn("java -Xshare:dump", rendered)
 
-        # Expected string/partial in the rendered output
-        expected_string = "# Fixes libatomic.so.1: cannot open shared object file"
-        self.assertIn(expected_string, rendered_template)
+    def test_debian_jdk8_no_xshare(self):
+        template = self.env.get_template("debian.Dockerfile.j2")
+        rendered = template.render(
+            base_image="ghcr.io/loong64/debian:forky",
+            image_type="jdk",
+            java_version="jdk8u482-b08",
+            version=8,
+            arch_data=self._arch_data(),
+            os="debian",
+        )
+        self.assertNotIn("java -Xshare:dump", rendered)
+        self.assertIn("ldconfig", rendered)
 
-    def test_version_checker(self):
-        template_name = "partials/version-check.j2"
-        template = self.env.get_template(template_name)
+    def test_debian_binutils_jdk13(self):
+        template = self.env.get_template("debian.Dockerfile.j2")
+        rendered = template.render(
+            base_image="ghcr.io/loong64/debian:forky",
+            image_type="jdk",
+            java_version="jdk-13+33",
+            version=13,
+            arch_data=self._arch_data(),
+            os="debian",
+        )
+        self.assertIn("binutils", rendered)
 
-        with self.subTest():
-            # The context/variables to render the template
-            context = {"version": "11", "image_type": "jdk"}
-            rendered_template = template.render(**context)
+    def test_debian_no_binutils_jdk12(self):
+        template = self.env.get_template("debian.Dockerfile.j2")
+        rendered = template.render(
+            base_image="ghcr.io/loong64/debian:forky",
+            image_type="jdk",
+            java_version="jdk-12+33",
+            version=12,
+            arch_data=self._arch_data(),
+            os="debian",
+        )
+        self.assertNotIn("binutils", rendered)
 
-            # Expected string/partial in the rendered output
-            self.assertIn("javac --version", rendered_template)
-            self.assertIn("java --version", rendered_template)
+    # --- anolis template ---
 
-        with self.subTest():
-            # The context/variables to render the template
-            context = {"version": "8", "image_type": "jdk"}
-            rendered_template = template.render(**context)
+    def test_anolis_jdk11_contains_download_url(self):
+        template = self.env.get_template("anolis.Dockerfile.j2")
+        rendered = template.render(
+            base_image="ghcr.io/loong64/anolis:23",
+            image_type="jdk",
+            java_version="jdk-11.0.30+7",
+            version=11,
+            arch_data=self._arch_data("loongarch64"),
+            os="anolis",
+        )
+        self.assertIn("https://fake-url.com/jdk.tar.gz", rendered)
+        self.assertIn("abc123", rendered)
+        self.assertIn("ghcr.io/loong64/anolis:23", rendered)
 
-            # Expected string/partial in the rendered output
-            self.assertIn("javac -version", rendered_template)
-            self.assertIn("java -version", rendered_template)
+    def test_anolis_uses_dnf(self):
+        template = self.env.get_template("anolis.Dockerfile.j2")
+        rendered = template.render(
+            base_image="ghcr.io/loong64/anolis:23",
+            image_type="jdk",
+            java_version="jdk-11.0.30+7",
+            version=11,
+            arch_data=self._arch_data("loongarch64"),
+            os="anolis",
+        )
+        self.assertIn("dnf install", rendered)
+        self.assertIn("dnf clean all", rendered)
 
-        with self.subTest():
-            # The context/variables to render the template
-            context = {"version": "11", "image_type": "jre"}
-            rendered_template = template.render(**context)
+    # --- arch-variable partial ---
 
-            # Expected string/partial in the rendered output
-            self.assertNotIn("javac --version", rendered_template)
-            self.assertIn("java --version", rendered_template)
+    def test_arch_variable_debian(self):
+        template = self.env.get_template("partials/arch-variable.j2")
+        rendered = template.render(os="debian")
+        self.assertIn("dpkg --print-architecture", rendered)
 
-        with self.subTest():
-            # The context/variables to render the template
-            context = {"version": "8", "image_type": "jre"}
-            rendered_template = template.render(**context)
+    def test_arch_variable_anolis(self):
+        template = self.env.get_template("partials/arch-variable.j2")
+        rendered = template.render(os="anolis")
+        self.assertIn("rpm --query", rendered)
 
-            # Expected string/partial in the rendered output
-            self.assertNotIn("javac -version", rendered_template)
-            self.assertIn("java -version", rendered_template)
+    # --- multi-arch-install partial (no GPG) ---
 
-    def test_version_checker_windows(self):
-        template_name = "partials/version-check-windows.j2"
-        template = self.env.get_template(template_name)
+    def test_multi_arch_install_no_gpg(self):
+        template = self.env.get_template("partials/multi-arch-install.j2")
+        rendered = template.render(
+            arch_data=self._arch_data(),
+            os="debian",
+            image_type="jdk",
+            version=11,
+        )
+        self.assertNotIn("gpg", rendered)
+        self.assertIn("md5sum", rendered)
+        self.assertIn("wget", rendered)
 
-        with self.subTest():
-            # The context/variables to render the template
-            context = {"version": "11", "image_type": "jdk"}
-            rendered_template = template.render(**context)
+    # --- version-check partial ---
 
-            # Expected string/partial in the rendered output
-            expected_string = "Write-Host 'javac --version'; javac --version;"
-            self.assertIn(expected_string, rendered_template)
+    def test_version_checker_jdk11(self):
+        template = self.env.get_template("partials/version-check.j2")
+        rendered = template.render(version="11", image_type="jdk")
+        self.assertIn("javac --version", rendered)
+        self.assertIn("java --version", rendered)
 
-        with self.subTest():
-            # The context/variables to render the template
-            context = {"version": "8", "image_type": "jdk"}
-            rendered_template = template.render(**context)
+    def test_version_checker_jdk8(self):
+        template = self.env.get_template("partials/version-check.j2")
+        rendered = template.render(version="8", image_type="jdk")
+        self.assertIn("javac -version", rendered)
+        self.assertIn("java -version", rendered)
 
-            # Expected string/partial in the rendered output
-            expected_string = "Write-Host 'javac -version'; javac -version;"
-            self.assertIn(expected_string, rendered_template)
+    def test_version_checker_jre_no_javac(self):
+        template = self.env.get_template("partials/version-check.j2")
+        rendered = template.render(version="11", image_type="jre")
+        self.assertNotIn("javac", rendered)
+        self.assertIn("java --version", rendered)
 
-        with self.subTest():
-            # The context/variables to render the template
-            context = {"version": "11", "image_type": "jre"}
-            rendered_template = template.render(**context)
+    # --- jshell partial ---
 
-            # Expected string/partial in the rendered output
-            expected_string = "Write-Host 'javac --version'; javac --version;"
-            self.assertNotIn(expected_string, rendered_template)
+    def test_jshell_jdk11(self):
+        template = self.env.get_template("partials/jshell.j2")
+        rendered = template.render(version="11", image_type="jdk")
+        self.assertIn('CMD ["jshell"]', rendered)
 
-        with self.subTest():
-            # The context/variables to render the template
-            context = {"version": "8", "image_type": "jre"}
-            rendered_template = template.render(**context)
+    def test_jshell_jre_no_cmd(self):
+        template = self.env.get_template("partials/jshell.j2")
+        rendered = template.render(version="17", image_type="jre")
+        self.assertNotIn('CMD ["jshell"]', rendered)
 
-            # Expected string/partial in the rendered output
-            expected_string = "Write-Host 'javac -version'; javac -version;"
-            self.assertNotIn(expected_string, rendered_template)
+    def test_jshell_jdk8_no_cmd(self):
+        template = self.env.get_template("partials/jshell.j2")
+        rendered = template.render(version="8", image_type="jdk")
+        self.assertNotIn('CMD ["jshell"]', rendered)
 
-    def test_jdk11plus_jshell_cmd(self):
-        template_name = "partials/jshell.j2"
-        template = self.env.get_template(template_name)
+    # --- entrypoint ---
 
-        with self.subTest():
-            # The context/variables to render the template
-            context = {"version": "11", "image_type": "jdk"}
-            rendered_template = template.render(**context)
+    def test_entrypoint_debian_uses_bash(self):
+        template = self.env.get_template("entrypoint.sh.j2")
+        rendered = template.render(image_type="jdk", os="debian", version=11)
+        self.assertIn("#!/usr/bin/env bash", rendered)
+        self.assertIn("update-ca-certificates", rendered)
 
-            # Expected string/partial in the rendered output
-            expected_string = 'CMD ["jshell"]'
-            self.assertIn(expected_string, rendered_template)
-
-        with self.subTest():
-            # The context/variables to render the template
-            context = {"version": "17", "image_type": "jre"}
-            rendered_template = template.render(**context)
-
-            # Expected string/partial in the rendered output
-            expected_string = 'CMD ["jshell"]'
-            self.assertNotIn(expected_string, rendered_template)
-
-        with self.subTest():
-            # The context/variables to render the template
-            context = {"version": "8", "image_type": "jdk"}
-            rendered_template = template.render(**context)
-
-            # Expected string/partial in the rendered output
-            expected_string = 'CMD ["jshell"]'
-            self.assertNotIn(expected_string, rendered_template)
-
-    def test_binutils_inclusion(self):
-        template_name = "ubuntu.Dockerfile.j2"
-        template = self.env.get_template(template_name)
-
-        # Binutils should be included for jdk images with version >= 13
-        with self.subTest("jdk 13+ should include binutils"):
-            context = {
-                "version": 13,
-                "image_type": "jdk",
-                "os": "ubuntu",
-                "arch_data": {},
-            }
-            rendered_template = template.render(**context)
-            self.assertIn("binutils", rendered_template)
-
-        # Binutils should not be included for jre images regardless of version
-        with self.subTest("jre 13+ should not include binutils"):
-            context = {
-                "version": 13,
-                "image_type": "jre",
-                "os": "ubuntu",
-                "arch_data": {},
-            }
-            rendered_template = template.render(**context)
-            self.assertNotIn("binutils", rendered_template)
-
-        # Binutils should not be included for jdk images with version < 13
-        with self.subTest("jdk < 13 should not include binutils"):
-            context = {
-                "version": 12,
-                "image_type": "jdk",
-                "os": "ubuntu",
-                "arch_data": {},
-            }
-            rendered_template = template.render(**context)
-            self.assertNotIn("binutils", rendered_template)
-
-    def test_arch_data_population(self):
-        template_name = "ubuntu.Dockerfile.j2"
-        template = self.env.get_template(template_name)
-
-        # Simulate API response
-        arch_data = {
-            "amd64": {
-                "download_url": "http://fake-url.com",
-                "checksum": "fake-checksum",
-            }
-        }
-
-        context = {
-            "version": 11,
-            "image_type": "jdk",
-            "os": "ubuntu",
-            "arch_data": arch_data,
-        }
-        rendered_template = template.render(**context)
-
-        self.assertIn("http://fake-url.com", rendered_template)
-        self.assertIn("fake-checksum", rendered_template)
-
-    def test_entrypoint_rendering(self):
-        template_name = "entrypoint.sh.j2"
-        template = self.env.get_template(template_name)
-
-        context = {
-            "image_type": "jdk",
-            "os": "ubuntu",
-            "version": 11,
-        }
-        rendered_template = template.render(**context)
-
-        # Ensure that the entrypoint script contains expected commands
-        self.assertIn("update-ca-certificates", rendered_template)
-        self.assertIn("exec \"$@\"", rendered_template)
-
-
-class TestResolveArchitectures(unittest.TestCase):
-    def setUp(self):
-        self.default_archs = ["aarch64", "arm", "ppc64le", "s390x", "x64"]
-
-    def test_no_overrides_returns_default(self):
-        result = resolve_architectures(self.default_archs, None, 17)
-        self.assertEqual(result, self.default_archs)
-
-    def test_empty_overrides_returns_default(self):
-        result = resolve_architectures(self.default_archs, [], 17)
-        self.assertEqual(result, self.default_archs)
-
-    def test_exact_match_full_replacement(self):
-        overrides = [{"versions": "==8", "architectures": ["aarch64", "x64"]}]
-        self.assertEqual(resolve_architectures(self.default_archs, overrides, 8), ["aarch64", "x64"])
-        self.assertEqual(resolve_architectures(self.default_archs, overrides, 11), self.default_archs)
-
-    def test_exclude(self):
-        overrides = [{"versions": ">=21", "exclude": ["arm"]}]
-        self.assertEqual(resolve_architectures(self.default_archs, overrides, 21), ["aarch64", "ppc64le", "s390x", "x64"])
-        self.assertEqual(resolve_architectures(self.default_archs, overrides, 17), self.default_archs)
-
-    def test_include(self):
-        overrides = [{"versions": ">=17", "include": ["riscv64"]}]
-        self.assertEqual(resolve_architectures(self.default_archs, overrides, 17), ["aarch64", "arm", "ppc64le", "s390x", "x64", "riscv64"])
-        self.assertEqual(resolve_architectures(self.default_archs, overrides, 11), self.default_archs)
-
-    def test_include_no_duplicates(self):
-        overrides = [{"versions": ">=17", "include": ["x64", "riscv64"]}]
-        result = resolve_architectures(self.default_archs, overrides, 17)
-        self.assertEqual(result.count("x64"), 1)
-        self.assertIn("riscv64", result)
-
-    def test_multiple_matching_overrides_applied(self):
-        overrides = [
-            {"versions": ">=21", "exclude": ["arm"]},
-            {"versions": "<17", "exclude": ["riscv64"]},
-        ]
-        # version 8 matches only second rule
-        self.assertEqual(resolve_architectures(self.default_archs, overrides, 8), ["aarch64", "arm", "ppc64le", "s390x", "x64"])
-        # version 17 matches neither
-        self.assertEqual(resolve_architectures(self.default_archs, overrides, 17), self.default_archs)
-        # version 21 matches only first rule
-        self.assertEqual(resolve_architectures(self.default_archs, overrides, 21), ["aarch64", "ppc64le", "s390x", "x64"])
-
-    def test_all_matching_overrides_accumulate(self):
-        overrides = [
-            {"versions": "==8", "exclude": ["s390x"]},
-            {"versions": "<17", "exclude": ["riscv64"]},
-        ]
-        # version 8 matches both rules
-        result = resolve_architectures(["aarch64", "arm", "ppc64le", "riscv64", "s390x", "x64"], overrides, 8)
-        self.assertNotIn("s390x", result)
-        self.assertNotIn("riscv64", result)
-        self.assertEqual(result, ["aarch64", "arm", "ppc64le", "x64"])
-
-    def test_not_equal(self):
-        overrides = [{"versions": "!=8", "exclude": ["arm"]}]
-        self.assertEqual(resolve_architectures(self.default_archs, overrides, 11), ["aarch64", "ppc64le", "s390x", "x64"])
-        self.assertEqual(resolve_architectures(self.default_archs, overrides, 8), self.default_archs)
-
-    def test_less_than(self):
-        overrides = [{"versions": "<11", "exclude": ["s390x"]}]
-        self.assertEqual(resolve_architectures(self.default_archs, overrides, 8), ["aarch64", "arm", "ppc64le", "x64"])
-        self.assertEqual(resolve_architectures(self.default_archs, overrides, 11), self.default_archs)
-
-    def test_greater_than(self):
-        overrides = [{"versions": ">17", "exclude": ["arm"]}]
-        self.assertEqual(resolve_architectures(self.default_archs, overrides, 21), ["aarch64", "ppc64le", "s390x", "x64"])
-        self.assertEqual(resolve_architectures(self.default_archs, overrides, 17), self.default_archs)
-
-    def test_invalid_condition_raises(self):
-        overrides = [{"versions": "~8", "exclude": ["x64"]}]
-        with self.assertRaises(ValueError):
-            resolve_architectures(self.default_archs, overrides, 8)
+    def test_entrypoint_anolis_uses_sh(self):
+        template = self.env.get_template("entrypoint.sh.j2")
+        rendered = template.render(image_type="jdk", os="anolis", version=11)
+        self.assertIn("#!/usr/bin/env sh", rendered)
+        self.assertIn("update-ca-trust", rendered)
 
 
 if __name__ == "__main__":

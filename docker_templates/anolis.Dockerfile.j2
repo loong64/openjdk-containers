@@ -1,0 +1,31 @@
+{% include 'partials/license.j2' %}
+
+FROM {{ base_image }}
+
+{% include 'partials/nix-env.j2' %}
+
+RUN set -eux; \
+    dnf install -y \
+        gzip \
+        tar \
+        # Required for jlink
+        binutils \
+        tzdata \
+        wget \
+        # utilities for keeping Anolis and OpenJDK CA certificates in sync
+        ca-certificates \
+        # Needed to extract CN and generate aliases for certificates
+        openssl \
+        # java.lang.UnsatisfiedLinkError: libfontmanager.so: libfreetype.so.6: cannot open shared object file
+        fontconfig \
+        glibc-langpack-en \
+    ; \
+    dnf clean all
+
+{% include 'partials/java-version.j2' %}
+
+{% include 'partials/multi-arch-install.j2' %}
+
+{% include 'partials/version-check.j2' %}
+{% include 'partials/entrypoint.j2' %}
+{% include 'partials/jshell.j2' %}
