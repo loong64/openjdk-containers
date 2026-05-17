@@ -21,6 +21,7 @@ RUN set -eux; \
 {% include 'partials/multi-arch-install.j2' %}
 {% if version|int >= 11 %}
 RUN jlink \
+        --module-path "$JAVA_HOME/jmods" \
         --add-modules ALL-MODULE-PATH \
         --strip-debug \
         --no-man-pages \
