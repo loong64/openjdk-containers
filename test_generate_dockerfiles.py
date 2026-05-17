@@ -28,7 +28,7 @@ class TestJinjaRendering(unittest.TestCase):
     def test_debian_jdk11_contains_download_url(self):
         template = self.env.get_template("debian.Dockerfile.j2")
         rendered = template.render(
-            base_image="ghcr.io/loong64/debian:forky",
+            base_image="ghcr.io/loong64/debian:trixie",
             image_type="jdk",
             java_version="jdk-11.0.30+7",
             version=11,
@@ -37,12 +37,12 @@ class TestJinjaRendering(unittest.TestCase):
         )
         self.assertIn("https://fake-url.com/jdk.tar.gz", rendered)
         self.assertIn("abc123", rendered)
-        self.assertIn("ghcr.io/loong64/debian:forky", rendered)
+        self.assertIn("ghcr.io/loong64/debian:trixie", rendered)
 
     def test_debian_jdk11_ldconfig_and_xshare(self):
         template = self.env.get_template("debian.Dockerfile.j2")
         rendered = template.render(
-            base_image="ghcr.io/loong64/debian:forky",
+            base_image="ghcr.io/loong64/debian:trixie",
             image_type="jdk",
             java_version="jdk-11.0.30+7",
             version=11,
@@ -55,7 +55,7 @@ class TestJinjaRendering(unittest.TestCase):
     def test_debian_jdk8_no_xshare(self):
         template = self.env.get_template("debian.Dockerfile.j2")
         rendered = template.render(
-            base_image="ghcr.io/loong64/debian:forky",
+            base_image="ghcr.io/loong64/debian:trixie",
             image_type="jdk",
             java_version="jdk8u482-b08",
             version=8,
@@ -68,7 +68,7 @@ class TestJinjaRendering(unittest.TestCase):
     def test_debian_binutils_jdk13(self):
         template = self.env.get_template("debian.Dockerfile.j2")
         rendered = template.render(
-            base_image="ghcr.io/loong64/debian:forky",
+            base_image="ghcr.io/loong64/debian:trixie",
             image_type="jdk",
             java_version="jdk-13+33",
             version=13,
@@ -80,7 +80,7 @@ class TestJinjaRendering(unittest.TestCase):
     def test_debian_no_binutils_jdk12(self):
         template = self.env.get_template("debian.Dockerfile.j2")
         rendered = template.render(
-            base_image="ghcr.io/loong64/debian:forky",
+            base_image="ghcr.io/loong64/debian:trixie",
             image_type="jdk",
             java_version="jdk-12+33",
             version=12,

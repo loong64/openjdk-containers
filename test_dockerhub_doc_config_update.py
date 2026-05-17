@@ -253,21 +253,18 @@ class TestGenerateManifest(unittest.TestCase):
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
-        # Create a minimal Dockerfile
-        jdk_dir = os.path.join(self.tmpdir, "25", "jdk", "ubuntu", "noble")
+        # Create a minimal loong64 Dockerfile
+        jdk_dir = os.path.join(self.tmpdir, "21", "jdk", "debian", "trixie")
         os.makedirs(jdk_dir)
         with open(os.path.join(jdk_dir, "Dockerfile"), "w") as f:
             f.write(textwrap.dedent("""\
-                FROM ubuntu:24.04
-                ENV JAVA_VERSION=jdk-25.0.2+10
+                FROM ghcr.io/loong64/debian:trixie
+                ENV JAVA_VERSION=jdk-21.0.9+10
                 RUN set -eux; \\
                     ARCH="$(dpkg --print-architecture)"; \\
                     case "${ARCH}" in \\
-                   amd64) \\
+                   loong64) \\
                      ESUM='abc'; \\
-                     ;; \\
-                   arm64) \\
-                     ESUM='def'; \\
                      ;; \\
                    *) \\
                      echo "Unsupported"; \\
@@ -279,16 +276,10 @@ class TestGenerateManifest(unittest.TestCase):
         self.config = {
             "configurations": {
                 "linux": [{
-                    "directory": "ubuntu/noble",
-                    "image": "ubuntu:24.04",
-                    "architectures": ["aarch64", "x64"],
-                    "os": "ubuntu",
-                }],
-                "alpine-linux": [{
-                    "directory": "alpine/3.23",
-                    "image": "alpine:3.23",
-                    "architectures": ["aarch64", "x64"],
-                    "os": "alpine-linux",
+                    "directory": "debian/trixie",
+                    "image": "ghcr.io/loong64/debian:trixie",
+                    "architectures": ["loong64"],
+                    "os": "debian",
                 }],
             },
         }
@@ -301,8 +292,8 @@ class TestGenerateManifest(unittest.TestCase):
         import shutil
         shutil.rmtree(self.tmpdir)
 
-    @patch("dockerhub_doc_config_update.get_supported_versions", return_value=[25])
-    @patch("dockerhub_doc_config_update.get_latest_lts", return_value=25)
+    @patch("dockerhub_doc_config_update.get_supported_versions", return_value=[21])
+    @patch("dockerhub_doc_config_update.get_latest_lts", return_value=21)
     @patch("dockerhub_doc_config_update.get_git_commit", return_value="abc123")
     @patch("dockerhub_doc_config_update.fetch_official_manifest", return_value="")
     def test_generates_valid_manifest(self, _fetch, _git, _lts, _versions):
@@ -312,23 +303,23 @@ class TestGenerateManifest(unittest.TestCase):
             content = f.read()
 
         # Check header
-        self.assertIn("# Eclipse Temurin OpenJDK images provided by the Eclipse Foundation.", content)
-        self.assertIn("GitRepo: https://github.com/adoptium/containers.git", content)
+        self.assertIn("# loong64 OpenJDK images", content)
+        self.assertIn("GitRepo: https://github.com/loong64/containers.git", content)
         self.assertIn("Builder: buildkit", content)
 
-        # Check tags for v25 JDK noble
-        self.assertIn("Tags: 25.0.2_10-jdk-noble, 25-jdk-noble, 25-noble", content)
-        self.assertIn("SharedTags: 25.0.2_10-jdk, 25-jdk, 25, latest", content)
+        # Check tags for v21 JDK trixie
+        self.assertIn("Tags: 21.0.9_10-jdk-trixie, 21-jdk-trixie, 21-trixie", content)
+        self.assertIn("SharedTags: 21.0.9_10-jdk, 21-jdk, 21, latest", content)
 
-        # Architectures come from the Dockerfile, not config
-        self.assertIn("Architectures: amd64, arm64v8", content)
+        # Architectures come from the Dockerfile loong64 case
+        self.assertIn("Architectures: loong64", content)
 
         # GitCommit
         self.assertIn("GitCommit: abc123", content)
-        self.assertIn("Directory: 25/jdk/ubuntu/noble", content)
+        self.assertIn("Directory: 21/jdk/debian/trixie", content)
 
-    @patch("dockerhub_doc_config_update.get_supported_versions", return_value=[25])
-    @patch("dockerhub_doc_config_update.get_latest_lts", return_value=25)
+    @patch("dockerhub_doc_config_update.get_supported_versions", return_value=[21])
+    @patch("dockerhub_doc_config_update.get_latest_lts", return_value=21)
     @patch("dockerhub_doc_config_update.get_git_commit", return_value="abc123")
     @patch("dockerhub_doc_config_update.fetch_official_manifest", return_value="")
     def test_no_trailing_blank_lines(self, _fetch, _git, _lts, _versions):
@@ -341,19 +332,21 @@ class TestGenerateManifest(unittest.TestCase):
         self.assertTrue(content.endswith("\n"))
         self.assertFalse(content.endswith("\n\n"))
 
-    @patch("dockerhub_doc_config_update.get_supported_versions", return_value=[25])
-    @patch("dockerhub_doc_config_update.get_latest_lts", return_value=25)
+    @patch("dockerhub_doc_config_update.get_supported_versions", return_value=[21, 22])
+    @patch("dockerhub_doc_config_update.get_latest_lts", return_value=21)
     @patch("dockerhub_doc_config_update.get_git_commit", return_value="abc123")
     @patch("dockerhub_doc_config_update.fetch_official_manifest", return_value="")
     def test_skips_missing_dockerfiles(self, _fetch, _git, _lts, _versions):
-        """Entries for os families with no Dockerfiles on disk should be skipped."""
+        """Versions with no Dockerfile on disk should be skipped."""
         generate_manifest(self.config, self.output_file)
 
         with open(self.output_file) as f:
             content = f.read()
 
-        # alpine-linux config exists but no Dockerfile was created for it
-        self.assertNotIn("alpine-3.23", content)
+        # v21 Dockerfile exists — should appear
+        self.assertIn("21/jdk/debian/trixie", content)
+        # v22 Dockerfile does not exist — should be absent
+        self.assertNotIn("22/jdk/debian/trixie", content)
 
 
 if __name__ == "__main__":

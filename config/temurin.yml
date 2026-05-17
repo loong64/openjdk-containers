@@ -14,9 +14,9 @@
 
 configurations:
   linux:
-  # Debian Forky (loong64)
-  - directory: debian/forky
-    image: ghcr.io/loong64/debian:forky
+  # Debian Trixie (loong64)
+  - directory: debian/trixie
+    image: ghcr.io/loong64/debian:trixie
     architectures: [loong64]
     os: debian
 

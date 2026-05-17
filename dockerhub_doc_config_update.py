@@ -178,23 +178,20 @@ def generate_manifest(config, output_file):
 
     versions = get_supported_versions()
     latest_version = get_latest_lts()
-    # Default images are the first entry in each OS family
+    # Default image is the first entry in the linux OS family
     default_linux_image = get_distro_name("linux", config["configurations"]["linux"][0]["directory"])
-    default_alpine_image = get_distro_name("alpine-linux", config["configurations"]["alpine-linux"][0]["directory"])
 
     lines = []
 
     # Header
-    lines.append("# Eclipse Temurin OpenJDK images provided by the Eclipse Foundation.")
+    lines.append("# loong64 OpenJDK images")
     lines.append("")
-    lines.append("Maintainers: George Adams <george.adams@microsoft.com> (@gdams),")
-    lines.append("             Stewart Addison <sxa@redhat.com> (@sxa)")
-    lines.append("GitRepo: https://github.com/adoptium/containers.git")
+    lines.append("GitRepo: https://github.com/loong64/openjdk-containers.git")
     lines.append("GitFetch: refs/heads/main")
     lines.append("Builder: buildkit")
 
-    # OS family iteration order matches the original script
-    os_family_order = ["alpine-linux", "linux", "windows"]
+    # Only linux OS family (no alpine, no windows)
+    os_family_order = ["linux"]
 
     for ver in versions:
         lines.append("")
@@ -202,7 +199,7 @@ def generate_manifest(config, output_file):
             f"#------------------------------v{ver} images---------------------------------"
         )
 
-        for pkg in ["jdk", "jre"]:
+        for pkg in ["jdk"]:
             for os_family in os_family_order:
                 if os_family not in config["configurations"]:
                     continue
@@ -230,7 +227,6 @@ def generate_manifest(config, output_file):
 
                     ojdk_version = format_ojdk_version(full_version)
                     distro = get_distro_name(os_family, directory)
-                    is_windows = os_family == "windows"
 
                     # Build tags
                     full_ver_tag = f"{ojdk_version}-{pkg}-{distro}"
@@ -241,33 +237,14 @@ def generate_manifest(config, output_file):
                     if pkg == "jdk":
                         jdk_tag = f"{ver}-{distro}"
                         all_tags = f"{all_tags}, {jdk_tag}"
-                        if ver == latest_version and os_family != "alpine-linux":
+                        if ver == latest_version:
                             extra_shared_tags = ", latest"
 
                     # Shared tags = tags without distro suffix
                     shared_tags = all_tags.replace(f"-{distro}", "")
+                    all_shared_tags = f"{shared_tags}{extra_shared_tags}"
 
-                    if is_windows:
-                        parts = distro.split("-", 1)
-                        windows_version = parts[0]
-                        windows_version_number = parts[1] if len(parts) > 1 else ""
-                        windows_shared_tags = all_tags.replace(distro, windows_version)
-
-                        if distro.startswith("nanoserver"):
-                            constraints = (
-                                f"{distro}, windowsservercore-{windows_version_number}"
-                            )
-                            all_shared_tags = windows_shared_tags
-                        else:
-                            constraints = distro
-                            all_shared_tags = (
-                                f"{windows_shared_tags}, "
-                                f"{shared_tags}{extra_shared_tags}"
-                            )
-                    else:
-                        all_shared_tags = f"{shared_tags}{extra_shared_tags}"
-
-                    # Compare with official manifest (before appending alpine aliases)
+                    # Compare with official manifest
                     manifest_block = find_manifest_block(official_manifest, all_tags)
                     official_gitcommit = get_block_gitcommit(manifest_block)
 
@@ -278,27 +255,14 @@ def generate_manifest(config, output_file):
                     else:
                         commit = gitcommit
 
-                    # Append alpine alias tags for the default alpine image
-                    if distro == default_alpine_image:
-                        alpine_aliases = (
-                            all_shared_tags.replace(", ", "-alpine, ") + "-alpine"
-                        )
-                        all_tags = f"{all_tags}, {alpine_aliases}"
-
                     # Write entry
                     lines.append(f"Tags: {all_tags}")
-                    if is_windows or distro == default_linux_image:
+                    if distro == default_linux_image:
                         lines.append(f"SharedTags: {all_shared_tags}")
-                    if is_windows:
-                        lines.append("Architectures: windows-amd64")
-                    else:
-                        arches = ", ".join(get_dockerfile_arches(dockerfile))
-                        lines.append(f"Architectures: {arches}")
+                    arches = ", ".join(get_dockerfile_arches(dockerfile))
+                    lines.append(f"Architectures: {arches}")
                     lines.append(f"GitCommit: {commit}")
                     lines.append(f"Directory: {dfdir}")
-                    if is_windows:
-                        lines.append("Builder: classic")
-                        lines.append(f"Constraints: {constraints}")
                     lines.append("")
 
     with open(output_file, "w") as f:
