@@ -195,6 +195,78 @@ class TestJinjaRendering(unittest.TestCase):
         self.assertIn("#!/usr/bin/env sh", rendered)
         self.assertIn("update-ca-trust", rendered)
 
+    # --- debian JRE template ---
+
+    def test_debian_jre11_uses_jlink(self):
+        template = self.env.get_template("debian-jre.Dockerfile.j2")
+        rendered = template.render(
+            base_image="ghcr.io/loong64/debian:trixie",
+            image_type="jre",
+            java_version="jdk-11.0.30+7",
+            version=11,
+            arch_data=self._arch_data(),
+            os="debian",
+        )
+        self.assertIn("jlink", rendered)
+        self.assertIn("ALL-MODULE-PATH", rendered)
+        self.assertIn("COPY --from=jdk-stage /jre", rendered)
+        self.assertNotIn("javac", rendered)
+
+    def test_debian_jre8_copies_jre_dir(self):
+        template = self.env.get_template("debian-jre.Dockerfile.j2")
+        rendered = template.render(
+            base_image="ghcr.io/loong64/debian:trixie",
+            image_type="jre",
+            java_version="jdk8u482-b08",
+            version=8,
+            arch_data=self._arch_data(),
+            os="debian",
+        )
+        self.assertNotIn("jlink", rendered)
+        self.assertIn("COPY --from=jdk-stage $JAVA_HOME/jre", rendered)
+
+    def test_debian_jre_is_multistage(self):
+        template = self.env.get_template("debian-jre.Dockerfile.j2")
+        rendered = template.render(
+            base_image="ghcr.io/loong64/debian:trixie",
+            image_type="jre",
+            java_version="jdk-21.0.9+10",
+            version=21,
+            arch_data=self._arch_data(),
+            os="debian",
+        )
+        self.assertIn("AS jdk-stage", rendered)
+        self.assertIn("FROM ghcr.io/loong64/debian:trixie\n", rendered)
+
+    # --- anolis JRE template ---
+
+    def test_anolis_jre11_uses_jlink(self):
+        template = self.env.get_template("anolis-jre.Dockerfile.j2")
+        rendered = template.render(
+            base_image="ghcr.io/loong64/anolis:23",
+            image_type="jre",
+            java_version="jdk-11.0.30+7",
+            version=11,
+            arch_data=self._arch_data("loongarch64"),
+            os="anolis",
+        )
+        self.assertIn("jlink", rendered)
+        self.assertIn("COPY --from=jdk-stage /jre", rendered)
+        self.assertNotIn("javac", rendered)
+
+    def test_anolis_jre8_copies_jre_dir(self):
+        template = self.env.get_template("anolis-jre.Dockerfile.j2")
+        rendered = template.render(
+            base_image="ghcr.io/loong64/anolis:23",
+            image_type="jre",
+            java_version="jdk8u482-b08",
+            version=8,
+            arch_data=self._arch_data("loongarch64"),
+            os="anolis",
+        )
+        self.assertNotIn("jlink", rendered)
+        self.assertIn("COPY --from=jdk-stage $JAVA_HOME/jre", rendered)
+
 
 if __name__ == "__main__":
     unittest.main()

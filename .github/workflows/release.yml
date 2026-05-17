@@ -1,0 +1,139 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      versions:
+        description: 'JDK versions to build (comma-separated, e.g. "8,11,17,21" or "all")'
+        required: false
+        default: "all"
+      image_types:
+        description: 'Image types to build'
+        required: false
+        default: "jdk,jre"
+      push:
+        description: 'Push images to ghcr.io'
+        required: false
+        type: boolean
+        default: true
+
+defaults:
+  run:
+    shell: bash -Eeuo pipefail -x {0}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  generate-matrix:
+    name: Generate Build Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.x"
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Generate matrix
+        id: matrix
+        env:
+          INPUT_VERSIONS: ${{ github.event.inputs.versions }}
+          INPUT_IMAGE_TYPES: ${{ github.event.inputs.image_types }}
+        run: |
+          python3 - <<'EOF'
+          import json, os, yaml
+
+          with open("config/temurin.yml") as f:
+              config = yaml.safe_load(f)
+
+          versions_input = os.environ["INPUT_VERSIONS"].strip()
+          types_input = os.environ["INPUT_IMAGE_TYPES"].strip()
+
+          image_types = [t.strip() for t in types_input.split(",") if t.strip()]
+
+          all_versions = sorted(
+              (int(d) for d in os.listdir(".") if d.isdigit()),
+          )
+
+          if versions_input == "all":
+              versions = all_versions
+          else:
+              versions = [int(v.strip()) for v in versions_input.split(",") if v.strip()]
+
+          includes = []
+          for ver in versions:
+              for pkg in image_types:
+                  for cfg in config["configurations"].get("linux", []):
+                      directory = cfg["directory"]
+                      base_image = cfg["image"]
+                      dfdir = f"{ver}/{pkg}/{directory}"
+                      if not os.path.exists(f"{dfdir}/Dockerfile"):
+                          continue
+                      slug = directory.replace("/", "-")
+                      includes.append({
+                          "version": ver,
+                          "pkg": pkg,
+                          "directory": directory,
+                          "dfdir": dfdir,
+                          "base_image": base_image,
+                          "slug": slug,
+                          "name": f"{ver}-{pkg}-{slug}",
+                      })
+
+          matrix = {"include": includes}
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"matrix={json.dumps(matrix)}\n")
+          print(json.dumps(matrix, indent=2))
+          EOF
+
+  build:
+    name: Build ${{ matrix.name }}
+    needs: generate-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to ghcr.io
+        if: ${{ github.event.inputs.push == 'true' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: la64-bot
+          password: ${{ secrets.GH_TOKEN }}
+
+      - name: Read JAVA_VERSION from Dockerfile
+        id: java_version
+        run: |
+          ver=$(grep -m1 'JAVA_VERSION=' "${{ matrix.dfdir }}/Dockerfile" | cut -d= -f2)
+          echo "full=$ver" >> "$GITHUB_OUTPUT"
+          # Convert to tag-safe form: jdk-11.0.30+7 -> 11.0.30_7, jdk8u482-b08 -> 8u482-b08
+          tag=$(echo "$ver" | sed 's/^jdk-\?//; s/+/_/g')
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.dfdir }}
+          platforms: linux/loong64
+          push: ${{ github.event.inputs.push == 'true' }}
+          tags: |
+            ghcr.io/loong64/openjdk-loongson:${{ steps.java_version.outputs.tag }}-${{ matrix.pkg }}-${{ matrix.slug }}
+            ghcr.io/loong64/openjdk-loongson:${{ matrix.version }}-${{ matrix.pkg }}-${{ matrix.slug }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}

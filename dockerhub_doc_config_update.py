@@ -200,7 +200,7 @@ def generate_manifest(config, output_file):
             f"#------------------------------v{ver} images---------------------------------"
         )
 
-        for pkg in ["jdk"]:
+        for pkg in ["jdk", "jre"]:
             for os_family in os_family_order:
                 if os_family not in config["configurations"]:
                     continue

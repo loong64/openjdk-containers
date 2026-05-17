@@ -1,0 +1,66 @@
+{% include 'partials/license.j2' %}
+
+FROM {{ base_image }} AS jdk-stage
+
+{% include 'partials/nix-env.j2' %}
+
+RUN set -eux; \
+    apt-get update; \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        wget \
+        {%- if version|int >= 13 %}
+        binutils \
+        {%- endif %}
+        ca-certificates p11-kit \
+    ; \
+    rm -rf /var/lib/apt/lists/*
+
+{% include 'partials/java-version.j2' %}
+
+{% set image_type = "jdk" %}
+{% include 'partials/multi-arch-install.j2' %} \
+    find "$JAVA_HOME/lib" -name '*.so' -exec dirname '{}' ';' | sort -u > /etc/ld.so.conf.d/docker-openjdk.conf; \
+    ldconfig; \
+    {% if version|int >= 11 -%}
+    java -Xshare:dump; \
+    jlink \
+        --add-modules ALL-MODULE-PATH \
+        --strip-debug \
+        --no-man-pages \
+        --no-header-files \
+        --compress=2 \
+        --output /jre
+{% else -%}
+    echo "JDK 8 JRE at $JAVA_HOME/jre"
+{% endif %}
+{% set image_type = "jre" %}
+
+FROM {{ base_image }}
+
+{% include 'partials/nix-env.j2' %}
+
+RUN set -eux; \
+    apt-get update; \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        fontconfig \
+        ca-certificates p11-kit \
+        tzdata \
+        locales \
+    ; \
+    echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen; \
+    locale-gen en_US.UTF-8; \
+    rm -rf /var/lib/apt/lists/*
+
+{% include 'partials/java-version.j2' %}
+
+{% if version|int >= 11 %}
+COPY --from=jdk-stage /jre $JAVA_HOME
+{% else %}
+COPY --from=jdk-stage $JAVA_HOME/jre $JAVA_HOME
+{% endif %}
+RUN set -eux; \
+    find "$JAVA_HOME/lib" -name '*.so' -exec dirname '{}' ';' | sort -u > /etc/ld.so.conf.d/docker-openjdk.conf; \
+    ldconfig
+
+{% include 'partials/version-check.j2' %}
+{% include 'partials/entrypoint.j2' %}

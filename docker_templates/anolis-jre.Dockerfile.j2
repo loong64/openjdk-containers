@@ -1,0 +1,56 @@
+{% include 'partials/license.j2' %}
+
+FROM {{ base_image }} AS jdk-stage
+
+{% include 'partials/nix-env.j2' %}
+
+RUN set -eux; \
+    dnf install -y \
+        gzip \
+        tar \
+        binutils \
+        wget \
+        ca-certificates \
+        openssl \
+    ; \
+    dnf clean all
+
+{% include 'partials/java-version.j2' %}
+
+{% set image_type = "jdk" %}
+{% include 'partials/multi-arch-install.j2' %}
+{% if version|int >= 11 %}
+RUN jlink \
+        --add-modules ALL-MODULE-PATH \
+        --strip-debug \
+        --no-man-pages \
+        --no-header-files \
+        --compress=2 \
+        --output /jre
+{% endif %}
+{% set image_type = "jre" %}
+
+FROM {{ base_image }}
+
+{% include 'partials/nix-env.j2' %}
+
+RUN set -eux; \
+    dnf install -y \
+        tzdata \
+        ca-certificates \
+        openssl \
+        fontconfig \
+        glibc-langpack-en \
+    ; \
+    dnf clean all
+
+{% include 'partials/java-version.j2' %}
+
+{% if version|int >= 11 %}
+COPY --from=jdk-stage /jre $JAVA_HOME
+{% else %}
+COPY --from=jdk-stage $JAVA_HOME/jre $JAVA_HOME
+{% endif %}
+
+{% include 'partials/version-check.j2' %}
+{% include 'partials/entrypoint.j2' %}

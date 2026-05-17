@@ -17,7 +17,7 @@ def main():
     for ver_str in sorted(
         (d for d in os.listdir(".") if d.isdigit()), key=int
     ):
-        for pkg in ["jdk"]:
+        for pkg in ["jdk", "jre"]:
             for cfg in config["configurations"].get("linux", []):
                 directory = cfg["directory"]
                 base_image = cfg["image"]

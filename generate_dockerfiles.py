@@ -97,32 +97,36 @@ if __name__ == "__main__":
 
                 arch_data = dict(sorted(arch_data.items()))
 
-                # Only JDK images — Loongnix does not ship separate JRE archives
-                image_type = "jdk"
-                output_directory = os.path.join(str(version), image_type, directory)
-                os.makedirs(output_directory, exist_ok=True)
+                # Generate both JDK and JRE images
+                for image_type in ["jdk", "jre"]:
+                    jre_template_name = f"{os_name}-jre.Dockerfile.j2"
+                    tpl_name = jre_template_name if image_type == "jre" else template_name
+                    tpl = env.get_template(tpl_name)
 
-                rendered_dockerfile = template.render(
-                    base_image=base_image,
-                    image_type=image_type,
-                    java_version=openjdk_version,
-                    version=version,
-                    arch_data=arch_data,
-                    os_family=os_family,
-                    os=os_name,
-                )
+                    output_directory = os.path.join(str(version), image_type, directory)
+                    os.makedirs(output_directory, exist_ok=True)
 
-                print(f"  Writing Dockerfile to {output_directory}")
-                with open(os.path.join(output_directory, "Dockerfile"), "w") as out_file:
-                    out_file.write(rendered_dockerfile)
+                    rendered_dockerfile = tpl.render(
+                        base_image=base_image,
+                        image_type=image_type,
+                        java_version=openjdk_version,
+                        version=version,
+                        arch_data=arch_data,
+                        os_family=os_family,
+                        os=os_name,
+                    )
 
-                template_entrypoint = env.get_template("entrypoint.sh.j2")
-                entrypoint = template_entrypoint.render(
-                    image_type=image_type,
-                    os=os_name,
-                    version=version,
-                )
-                with open(os.path.join(output_directory, "entrypoint.sh"), "w") as out_file:
-                    out_file.write(entrypoint)
+                    print(f"  Writing {image_type} Dockerfile to {output_directory}")
+                    with open(os.path.join(output_directory, "Dockerfile"), "w") as out_file:
+                        out_file.write(rendered_dockerfile)
+
+                    template_entrypoint = env.get_template("entrypoint.sh.j2")
+                    entrypoint = template_entrypoint.render(
+                        image_type=image_type,
+                        os=os_name,
+                        version=version,
+                    )
+                    with open(os.path.join(output_directory, "entrypoint.sh"), "w") as out_file:
+                        out_file.write(entrypoint)
 
     print("Dockerfiles generated successfully!")
