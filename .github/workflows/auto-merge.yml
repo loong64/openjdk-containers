@@ -13,4 +13,4 @@ jobs:
       pull-requests: write
     uses: adoptium/.github/.github/workflows/pr-auto-merge.yml@main
     with:
-      allowed-author: eclipse-temurin-bot
+      allowed-author: la64-bot
