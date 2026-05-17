@@ -48,7 +48,7 @@ jobs:
         name: Generate Jobs
         run: |
           export GENERATE_STACKBREW_LIBRARY='python3 dockerhub_doc_config_update.py /dev/stdout'
-          export GITHUB_REPOSITORY="eclipse-temurin"
+          export GITHUB_REPOSITORY="loong64/containers"
           strategy="$("$BASHBREW_SCRIPTS/github-actions/generate.sh")"
           echo "strategy=$strategy" >> "$GITHUB_OUTPUT"
           jq . <<<"$strategy" # sanity check / debugging aid

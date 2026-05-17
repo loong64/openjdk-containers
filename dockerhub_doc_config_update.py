@@ -186,6 +186,7 @@ def generate_manifest(config, output_file):
     # Header
     lines.append("# loong64 OpenJDK images")
     lines.append("")
+    lines.append("Maintainers: loong64 <la64-bot@users.noreply.github.com> (@loong64)")
     lines.append("GitRepo: https://github.com/loong64/openjdk-containers.git")
     lines.append("GitFetch: refs/heads/main")
     lines.append("Builder: buildkit")

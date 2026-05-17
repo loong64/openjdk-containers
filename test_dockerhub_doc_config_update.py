@@ -304,7 +304,8 @@ class TestGenerateManifest(unittest.TestCase):
 
         # Check header
         self.assertIn("# loong64 OpenJDK images", content)
-        self.assertIn("GitRepo: https://github.com/loong64/containers.git", content)
+        self.assertIn("Maintainers: loong64 <la64-bot@users.noreply.github.com> (@loong64)", content)
+        self.assertIn("GitRepo: https://github.com/loong64/openjdk-containers.git", content)
         self.assertIn("Builder: buildkit", content)
 
         # Check tags for v21 JDK trixie
