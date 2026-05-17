@@ -43,13 +43,10 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - run: pip install pyyaml
-      - uses: docker-library/bashbrew@a519e31d2ed9cb229ff38ab4488e78bfa09d7a2a # v0.1.14
       - id: generate-jobs
         name: Generate Jobs
         run: |
-          export GENERATE_STACKBREW_LIBRARY='python3 dockerhub_doc_config_update.py /dev/stdout'
-          export GITHUB_REPOSITORY="loong64/containers"
-          strategy="$("$BASHBREW_SCRIPTS/github-actions/generate.sh")"
+          strategy="$(python3 generate_test_matrix.py)"
           echo "strategy=$strategy" >> "$GITHUB_OUTPUT"
           jq . <<<"$strategy" # sanity check / debugging aid
   test:
@@ -63,6 +60,8 @@ jobs:
       # Temporary workaround for https://github.com/actions/runner-images/issues/13729
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v4
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
       - name: Prepare Environment
         run: ${{ matrix.runs.prepare }}
       - name: Pull Dependencies
