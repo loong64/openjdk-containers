@@ -30,6 +30,9 @@ def main():
                 tag = f"loong64-test:{ver_str}-{pkg}-{slug}"
                 name = f"{ver_str}-{pkg}-{slug}"
 
+                ver = int(ver_str)
+                version_flag = "-version" if ver == 8 else "--version"
+
                 includes.append({
                     "name": name,
                     "os": "ubuntu-latest",
@@ -48,7 +51,7 @@ def main():
                         ),
                         "test": (
                             f"docker run --rm --platform linux/loong64"
-                            f" {tag} java --version"
+                            f" {tag} java {version_flag}"
                         ),
                         "images": "docker image ls --filter since=image-list-marker",
                     },
