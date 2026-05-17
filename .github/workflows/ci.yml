@@ -5,6 +5,7 @@ on:
       - loongnix_api.py
       - dockerhub_doc_config_update.py
       - generate_dockerfiles.py
+      - generate_test_matrix.py
       - test_dockerhub_doc_config_update.py
       - test_generate_dockerfiles.py
       - requirements.txt
