@@ -3,7 +3,9 @@ on:
   pull_request:
     paths:
       - loongnix_api.py
+      - dockerhub_doc_config_update.py
       - generate_dockerfiles.py
+      - test_dockerhub_doc_config_update.py
       - test_generate_dockerfiles.py
       - requirements.txt
     branches: [ main ]
@@ -27,3 +29,4 @@ jobs:
       - name: Run tests
         run: |
           python3 -m unittest test_generate_dockerfiles -v
+          python3 -m unittest test_dockerhub_doc_config_update -v

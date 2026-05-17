@@ -19,6 +19,9 @@ LOONGNIX_FTP_BASE = "https://ftp.loongnix.cn/Java/openjdk{version}/"
 # All known JDK major versions available on Loongnix FTP
 CANDIDATE_VERSIONS = [8, 11, 17, 21, 22, 23, 24, 25, 26]
 
+# Standard Java LTS versions
+LTS_VERSIONS = {8, 11, 17, 21, 25}
+
 
 class _LinkParser(HTMLParser):
     def __init__(self):
@@ -93,6 +96,13 @@ def get_supported_versions():
         if any("glibc2.34" in link and link.endswith(".tar.gz") for link in links):
             supported.append(version)
     return supported
+
+
+def get_latest_lts():
+    """Return the highest LTS version that has loong64 binaries on Loongnix FTP."""
+    supported = get_supported_versions()
+    lts_supported = [v for v in supported if v in LTS_VERSIONS]
+    return max(lts_supported) if lts_supported else 21
 
 
 def get_release_info(version):
