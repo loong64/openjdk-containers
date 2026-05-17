@@ -37,4 +37,4 @@ jobs:
           branch: "dockerfile_bot"
           commit-message: "dockerfile: automated nightly updates"
           labels: automerge
-          author: "la64-bot <la64-bot@loong64.com>"
+          author: "la64-bot <la64-bot@users.noreply.github.com>"
