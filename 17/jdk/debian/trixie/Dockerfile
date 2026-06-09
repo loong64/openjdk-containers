@@ -41,14 +41,14 @@ RUN set -eux; \
     locale-gen en_US.UTF-8; \
     rm -rf /var/lib/apt/lists/*
 
-ENV JAVA_VERSION=jdk-17.0.18+8
+ENV JAVA_VERSION=jdk-17.0.19+10
 
 RUN set -eux; \
     ARCH="$(dpkg --print-architecture)"; \
     case "${ARCH}" in \
        loong64) \
-         ESUM='3d296d6722bc81f556263ea2a78d45a0'; \
-         BINARY_URL='https://ftp.loongnix.cn/Java/openjdk17/loongson17.17.26-fx-jdk17.0.18_8-linux-loongarch64-glibc2.34.tar.gz'; \
+         ESUM='206527bc946b2098ffd5d84cc0046692'; \
+         BINARY_URL='https://ftp.loongnix.cn/Java/openjdk17/loongson17.18.25-fx-jdk17.0.19_10-linux-loongarch64-glibc2.34.tar.gz'; \
          ;; \
        *) \
          echo "Unsupported arch: ${ARCH}"; \
