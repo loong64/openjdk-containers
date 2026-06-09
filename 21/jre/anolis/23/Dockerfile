@@ -36,15 +36,15 @@ RUN set -eux; \
     ; \
     dnf clean all
 
-ENV JAVA_VERSION=jdk-21.0.10+7
+ENV JAVA_VERSION=jdk-21.0.11+10
 
 
 RUN set -eux; \
     ARCH="$(rpm --query --queryformat='%{ARCH}' rpm)"; \
     case "${ARCH}" in \
        loongarch64) \
-         ESUM='2d80c433cc1bb1f797deae334cd2ac7c'; \
-         BINARY_URL='https://ftp.loongnix.cn/Java/openjdk21/loongson21.10.25-fx-jdk21.0.10_7-linux-loongarch64-glibc2.34.tar.gz'; \
+         ESUM='19eef4901f6233e4cde64464196add65'; \
+         BINARY_URL='https://ftp.loongnix.cn/Java/openjdk21/loongson21.11.38-fx-jdk21.0.11_10-linux-loongarch64-glibc2.34.tar.gz'; \
          ;; \
        *) \
          echo "Unsupported arch: ${ARCH}"; \
@@ -91,7 +91,7 @@ RUN set -eux; \
     ; \
     dnf clean all
 
-ENV JAVA_VERSION=jdk-21.0.10+7
+ENV JAVA_VERSION=jdk-21.0.11+10
 
 
 COPY --from=jdk-stage /jre $JAVA_HOME

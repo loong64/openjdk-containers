@@ -38,14 +38,14 @@ RUN set -eux; \
     locale-gen en_US.UTF-8; \
     rm -rf /var/lib/apt/lists/*
 
-ENV JAVA_VERSION=jdk-11.0.30+7
+ENV JAVA_VERSION=jdk-11.0.31+11
 
 RUN set -eux; \
     ARCH="$(dpkg --print-architecture)"; \
     case "${ARCH}" in \
        loong64) \
-         ESUM='0e9140b353e0c4f1425b1a7e70987620'; \
-         BINARY_URL='https://ftp.loongnix.cn/Java/openjdk11/loongson11.17.26-fx-jdk11.0.30_7-linux-loongarch64-glibc2.34.tar.gz'; \
+         ESUM='185d2a0017a7c7c6e63c6d61c1acdb39'; \
+         BINARY_URL='https://ftp.loongnix.cn/Java/openjdk11/loongson11.18.27-fx-jdk11.0.31_11-linux-loongarch64-glibc2.34.tar.gz'; \
          ;; \
        *) \
          echo "Unsupported arch: ${ARCH}"; \
