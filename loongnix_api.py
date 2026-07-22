@@ -22,6 +22,8 @@ CANDIDATE_VERSIONS = [8, 11, 17, 21, 22, 23, 24, 25, 26]
 # Standard Java LTS versions
 LTS_VERSIONS = {8, 11, 17, 21, 25}
 
+class LoongnixNetworkError(RuntimeError):
+    """Raised when network access to Loongnix FTP fails."""
 
 class _LinkParser(HTMLParser):
     def __init__(self):
@@ -41,8 +43,11 @@ def _fetch_directory_listing(version):
     try:
         with urllib.request.urlopen(req) as response:
             html = response.read().decode("utf-8")
-    except Exception:
-        return []
+    except Exception as e:
+        raise LoongnixNetworkError(
+            f"Failed to fetch directory listing from {url}: {e}"
+        ) from e
+
     parser = _LinkParser()
     parser.feed(html)
     return parser.links
@@ -83,8 +88,13 @@ def _parse_jdk_version_string(filename, version):
 def _fetch_md5(url):
     """Fetch the MD5 hex digest from a .md5sum file (format: '<hash>  <filename>')."""
     req = urllib.request.Request(url, headers={"User-Agent": "Loongnix Dockerfile Updater"})
-    with urllib.request.urlopen(req) as response:
-        content = response.read().decode("utf-8").strip()
+    try:
+        with urllib.request.urlopen(req) as response:
+            content = response.read().decode("utf-8").strip()
+    except Exception as e:
+        raise LoongnixNetworkError(
+            f"Failed to fetch checksum from {url}: {e}"
+        ) from e
     return content.split()[0]
 
 
