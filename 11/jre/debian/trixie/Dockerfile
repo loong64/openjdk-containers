@@ -33,15 +33,15 @@ RUN set -eux; \
     ; \
     rm -rf /var/lib/apt/lists/*
 
-ENV JAVA_VERSION=jdk-11.0.31+11
+ENV JAVA_VERSION=jdk-11.0.32+9
 
 
 RUN set -eux; \
     ARCH="$(dpkg --print-architecture)"; \
     case "${ARCH}" in \
        loong64) \
-         ESUM='185d2a0017a7c7c6e63c6d61c1acdb39'; \
-         BINARY_URL='https://ftp.loongnix.cn/Java/openjdk11/loongson11.18.27-fx-jdk11.0.31_11-linux-loongarch64-glibc2.34.tar.gz'; \
+         ESUM='7e6e8db135eb1335361853d96b1c8450'; \
+         BINARY_URL='https://ftp.loongnix.cn/Java/openjdk11/loongson11.19.27-fx-jdk11.0.32_9-linux-loongarch64-glibc2.34.tar.gz'; \
          ;; \
        *) \
          echo "Unsupported arch: ${ARCH}"; \
@@ -92,7 +92,7 @@ RUN set -eux; \
     locale-gen en_US.UTF-8; \
     rm -rf /var/lib/apt/lists/*
 
-ENV JAVA_VERSION=jdk-11.0.31+11
+ENV JAVA_VERSION=jdk-11.0.32+9
 
 
 COPY --from=jdk-stage /jre $JAVA_HOME

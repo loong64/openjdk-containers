@@ -33,15 +33,15 @@ RUN set -eux; \
     ; \
     rm -rf /var/lib/apt/lists/*
 
-ENV JAVA_VERSION=jdk8u492-b09
+ENV JAVA_VERSION=jdk8u502-b07
 
 
 RUN set -eux; \
     ARCH="$(dpkg --print-architecture)"; \
     case "${ARCH}" in \
        loong64) \
-         ESUM='bcab70fc40aa0ab9944a64f45eebe0eb'; \
-         BINARY_URL='https://ftp.loongnix.cn/Java/openjdk8/loongson8.1.27-fx-jdk8u492b09-linux-loongarch64-glibc2.34.tar.gz'; \
+         ESUM='909cbf2cf06cf3002f75720fe77ee366'; \
+         BINARY_URL='https://ftp.loongnix.cn/Java/openjdk8/loongson8.1.28-fx-jdk8u502b07-linux-loongarch64-glibc2.34.tar.gz'; \
          ;; \
        *) \
          echo "Unsupported arch: ${ARCH}"; \
@@ -84,7 +84,7 @@ RUN set -eux; \
     locale-gen en_US.UTF-8; \
     rm -rf /var/lib/apt/lists/*
 
-ENV JAVA_VERSION=jdk8u492-b09
+ENV JAVA_VERSION=jdk8u502-b07
 
 
 COPY --from=jdk-stage $JAVA_HOME/jre $JAVA_HOME
